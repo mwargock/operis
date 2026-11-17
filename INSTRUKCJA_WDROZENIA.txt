@@ -1,0 +1,181 @@
+ESL OPERACJE – WDROŻENIE NA HOME.PL (wersja 3, aplikacja modułowa)
+==================================================================
+
+ARCHITEKTURA MODUŁOWA
+- Rdzeń (wspólny dla wszystkich modułów): oddziały, użytkownicy, role, operatorzy, terminale, komunikaty,
+  bezpieczeństwo (hasła, 2FA, sesje, IP), dziennik zmian, kopie zapasowe, jeden panel administracyjny.
+- Moduły obszarów pracy (katalog moduly/<nazwa>/):
+  · Załadunki – bramy załadunkowe (wdrożony),
+  · Magazyn materiałów i surowców, Magazyn Pustych Opakowań, Strefa Kompletacji, Przepakowania,
+    Utylizacja Piwa, Inne czynności – przygotowane w rejestrze modułów, do budowy jako kolejne etapy.
+- Panel → Administracja → Moduły: włączanie modułów w oddziałach.
+- Dostęp do modułów: użytkownicy panelu – w roli; operatorzy – w karcie operatora; tablety – w karcie terminala.
+  Operator zaloguje się do modułu tylko wtedy, gdy moduł jest włączony w oddziale, przypisany do terminala i do operatora.
+- Dla programisty: nowy moduł = katalog moduly/<id>/modul.php z funkcjami <prefiks>_trasy, _sync, _ja,
+  _ustawienia, _cron, _retencja oraz wpis w modulyDef() w lib.php (gotowy=1).
+
+ARCHITEKTURA
+- Jedna aplikacja na serwerze (PHP 8.1+ i MySQL/MariaDB), dwa wejścia:
+    https://TWOJA-DOMENA/zaladunki/terminal/   – tablety na stanowiskach (operatorzy)
+    https://TWOJA-DOMENA/zaladunki/panel/      – panel administracyjny (laptopy)
+- Dane trafiają do bazy na bieżąco. Terminal działa także bez internetu (kolejka offline, wysyłka co 15 s).
+- Bez usług zewnętrznych (bez Google, bez Claude) – wszystkie pliki, czcionki i biblioteki są na Twoim serwerze.
+
+1. BAZA DANYCH (panel home.pl)
+   - Utwórz bazę MySQL/MariaDB i użytkownika. Zanotuj: host, nazwę bazy, użytkownika i hasło.
+
+2. KONFIGURACJA
+   - Otwórz config.php i uzupełnij: host, name, user, pass.
+   - Ustaw install_key na własny, losowy ciąg (min. 20 znaków). Ten sam klucz służy do zadania CRON (pkt 7).
+
+3. WGRANIE PLIKÓW (FTP / menedżer plików home.pl)
+   - Wgraj cały folder do katalogu strony, np. public_html/zaladunki/
+     (zachowaj strukturę: api/, assets/, data/, panel/, terminal/ oraz pliki .htaccess).
+   - Katalog data/ musi mieć prawo zapisu (zapisywane są tam zdjęcia z terminali).
+   - Włącz certyfikat SSL dla domeny (wymagany HTTPS) i ustaw PHP 8.1 lub nowszy.
+
+4. INSTALACJA
+   - Otwórz: https://TWOJA-DOMENA/zaladunki/install.php?klucz=TWOJ_INSTALL_KEY
+   - Utwórz konto administratora głównego. Po utworzeniu konta instalator sam się blokuje –
+     dla porządku usuń plik install.php z serwera.
+   - Aktualizacja z wersji 1: wgraj nowe pliki bez nadpisywania config.php – baza zostanie
+     uzupełniona automatycznie przy pierwszym otwarciu panelu lub terminala; dane pozostaną.
+
+5. PIERWSZA KONFIGURACJA W PANELU (administrator główny)
+   a) Moje konto – włącz weryfikację dwuetapową (aplikacja Microsoft/Google Authenticator).
+   b) Ustawienia systemu – rodzaje palet, powody przestojów, polityka haseł, czas bezczynności,
+      dozwolone adresy IP panelu (opcjonalnie), wymóg 2FA dla administratorów głównych,
+      adres nadawcy raportów, retencja danych, LISTA KONTROLNA przed załadunkiem (pozycje PL/UA/EN,
+      kolejność, aktywność). Operator musi zaznaczyć wszystkie aktywne pozycje, zanim terminal
+      rozpocznie załadunek; potwierdzenie z godziną zapisuje się przy załadunku (Rejestr, eksport).
+   c) Ustawienia oddziału (wybierz oddział w filtrze) – doki, czasowe wyłączenie doków, godziny zmian,
+      format Load ID, limity i alarmy, pola przy zakończeniu (nr rejestracyjny, uwagi, zdjęcie),
+      języki terminala, cele dzienne, adresaci raportów e-mail, hasło serwisowe terminali.
+   d) Operatorzy – dodaj ręcznie lub zaimportuj z Excela (przycisk „Pobierz wzór pliku”).
+      Data ważności UDT: po jej upływie operator nie zaloguje się na terminalu.
+   e) Terminale – „Dodaj terminal” dla każdego tabletu → kod aktywacyjny (ważny 48 h).
+   f) Role – utwórz role (np. Brygadzista) i ustaw ich uprawnienia.
+   g) Uprawnienia – konta użytkowników panelu: login, rola, oddziały.
+      Nowym kontom domyślnie wymuszana jest zmiana hasła przy pierwszym logowaniu.
+
+6. TABLET (każde stanowisko)
+   - Edge/Chrome → https://TWOJA-DOMENA/zaladunki/terminal/
+     Tryb kiosku (skrót): msedge --kiosk "https://TWOJA-DOMENA/zaladunki/terminal/" --edge-kiosk-type=fullscreen
+   - Serwis: przytrzymaj logo 3 s (lub dotknij 5×) → wpisz kod aktywacyjny → Aktywuj.
+   - Zdjęcia: tablet używa aparatu (przeglądarka poprosi o zgodę przy pierwszym użyciu).
+   - TRYB PRACY TERMINALA (Terminale → „Tryb i moduły”):
+       • Dedykowany moduł – terminal pracuje w jednym obszarze, operator od razu loguje się kartą/PIN-em.
+       • Wybór modułu przed logowaniem – ekran startowy pokazuje kafelki obszarów; operator wybiera obszar,
+         potem się loguje. Po wylogowaniu (lub po 2 min bez logowania) terminal wraca do wyboru obszaru.
+     Operator zaloguje się tylko do obszarów, do których jest przypisany. Przypisania ustala administrator
+     oddziału: Operatorzy → „Przypisanie operatorów do modułów” (pole w nagłówku zaznacza wszystkich).
+     Moduł musi być też włączony w oddziale (Moduły – administrator główny).
+   - PRACA BEZ SIECI: terminal musi być otwierany przez HTTPS (certyfikat SSL w home.pl – bezpłatny Let's Encrypt).
+     Po pierwszym otwarciu z siecią tablet zapisuje stronę terminala i działa także wtedy, gdy Wi-Fi zniknie
+     (również po ponownym uruchomieniu przeglądarki). Logowanie kartą/PIN-em, start i koniec załadunku, przestoje
+     i zdjęcia zapisują się na tablecie; terminal pokazuje żółty pasek „TRYB OFFLINE” z liczbą niewysłanych zdarzeń
+     i wysyła je automatycznie po odzyskaniu połączenia. Liczbę niewysłanych danych widać też w panelu (Terminale).
+     Uwaga: dwa tablety pracujące offline nie widzą nawzajem zajętych doków do czasu synchronizacji.
+
+7. RAPORTY E-MAIL I RETENCJA (zadanie CRON w panelu home.pl)
+   - Panel home.pl → Zadania CRON → nowe zadanie typu „URL”, raz dziennie (np. 06:30):
+       https://TWOJA-DOMENA/zaladunki/cron.php?klucz=TWOJ_INSTALL_KEY
+   - Raport dzienny wysyłany jest codziennie (za poprzednią dobę), tygodniowy w poniedziałki.
+   - To samo zadanie usuwa dane starsze niż ustawiona retencja (jeśli ustawiona).
+   - Sprawdzenie: Ustawienia oddziału → „Wyślij raport testowy”.
+   - Adres nadawcy (Ustawienia systemu) powinien należeć do Twojej domeny w home.pl.
+
+8. ALERTY E-MAIL / SMS (włącza wyłącznie administrator główny)
+   - Ustawienia systemu → „Alerty e-mail i SMS”: włącz alerty, wybierz kanały i zdarzenia:
+     przekroczony czas załadunku, terminal bez kontaktu, przestój dłuższy niż N min, wygasające uprawnienia UDT.
+   - Odbiorców (e-maile, telefony) podaje się w Ustawieniach oddziału → „Alerty e-mail / SMS – odbiorcy”.
+   - SMS: konto w SMSAPI.pl → wygeneruj token OAuth (uprawnienie SMS) → wklej w polu „Token API SMSAPI.pl”.
+     Pole „Nadawca SMS” tylko dla nazwy zarejestrowanej w SMSAPI (puste = numer domyślny bramki).
+     Treść SMS jest wysyłana bez polskich znaków (taniej – 160 znaków w jednej wiadomości).
+   - Przycisk „Wyślij test e-mail / SMS” sprawdza konfigurację; „Dziennik alertów” pokazuje wynik każdej wysyłki.
+   - Zdarzenia są sprawdzane automatycznie co ok. 1 min, gdy działa terminal lub otwarty jest panel.
+     Dodatkowe zadanie CRON (zalecane, co 5–10 min) wykrywa także awarię wszystkich terminali naraz:
+       https://TWOJA-DOMENA/zaladunki/cron.php?klucz=TWOJ_INSTALL_KEY&tryb=alerty
+   - Każde zdarzenie jest zgłaszane tylko raz (bez powtórzeń); zdarzenia starsze niż 24 h nie są zgłaszane.
+
+MODUŁ STREFA KOMPLETACJI – uruchomienie
+  1. Administrator główny: Moduły → włącz „Strefa Kompletacji” w oddziale; Role → zaznacz moduł w rolach,
+     które mają widzieć kompletację w panelu.
+  2. Terminale → „Tryb i moduły”: tryb „Wybór modułu przed logowaniem” (Załadunki + Strefa Kompletacji)
+     albo „Dedykowany moduł” = Strefa Kompletacji (tablet tylko w strefie kompletacji).
+  3. Operatorzy → „Przypisanie operatorów do modułów”: zaznacz kolumnę Strefa Kompletacji.
+  Terminal: wybór obszaru → logowanie → Load ID → POTWIERDŹ (wylogowanie). Zakończenie: logowanie →
+  „Zakończ kompletację” → ilości CAR (kartony), CRT (skrzynki), TRA (zgrzewki), KEG (kegi) – wymagane,
+  0 gdy brak; palety – opcjonalnie → POTWIERDŹ (wylogowanie). Można też zakończyć kompletację innego
+  operatora (np. przy zmianie). Działa także offline.
+  Panel → Kompletacja: wskaźniki, wykres, operatorzy, rejestr z filtrami, korekty (Popraw/Zakończ/Usuń –
+  wg uprawnień korekt), eksport .xlsx.
+
+WIDOKI PANELU
+- Menu boczne: Analiza (Pulpit, Oś czasu doków, Rejestr, Przestoje, Ranking, Plan TMS, Centrum operacyjne),
+  Zarządzanie, Administracja, Konto. Liczniki przy pozycjach: alarmy, trwające przestoje, terminale bez kontaktu.
+- Przestoje (analiza): wskaźniki, wykres Pareto przyczyn (które przyczyny dają 80% czasu), trend wg godziny /
+  doby / tygodnia (zależnie od zakresu), porównanie oddziałów (min przestoju na załadunek), zmiany i doki,
+  podsumowanie przyczyn, eksport analizy do Excela.
+- Karta operatora (Operatorzy → „Karta” lub klik w nazwisko w Rankingu): wskaźniki z porównaniem do średniej
+  oddziału, wydajność i liczba załadunków tygodniowo, struktura pracy, przestoje, lista załadunków,
+  zmiany w danych operatora; okres 30/90/180 dni lub 12 mies.; eksport .xlsx i wydruk.
+- Pulpit: alarmy, wskaźniki z paskami postępu, wykres godzinowy (dziś vs średnia z 7 dób), realizacja celu
+  dobowego ze znacznikiem oczekiwanego postępu, stan doków na żywo, ostatnie zdarzenia.
+- Oś czasu doków: każdy załadunek jako pasek na osi czasu (cała doba lub wybrana zmiana), wykorzystanie doków,
+  najdłuższe przerwy między autami, automatyczne wnioski.
+- Centrum operacyjne: ciemny widok na monitor ścienny, odświeżanie co 15 s. Adres do zakładki w przeglądarce
+  monitora: https://TWOJA-DOMENA/zaladunki/panel/#monitor (przycisk „Pełny ekran” lub klawisz F11).
+  Dla monitora warto założyć osobne konto z rolą „Podgląd” i ustawić w Bezpieczeństwie dłuższy czas bezczynności.
+- Telefon: panel dopasowuje się do wąskiego ekranu (menu jako przewijany pasek u góry).
+
+INSTRUKCJE I SCHEMATY (panel → Zarządzanie → Instrukcje i schematy)
+- Wgrywanie plików: Excel (.xlsx, .xls), PDF, obrazy (.png, .jpg, .webp), maks. 15 MB. Dla każdego pliku:
+  oddział (lub wszystkie – tylko administrator główny), moduł, kategoria (np. Schematy załadunku, Instrukcje, BHP),
+  tytuł, opis, kolejność. Dokument można ukryć, podmienić plik lub usunąć.
+- Uprawnienie „Instrukcje i schematy” w roli pozwala wgrywać i zmieniać dokumenty; podgląd ma każdy użytkownik panelu.
+- Terminal: kafelek „Instrukcje i schematy” na ekranie startowym – podgląd BEZ logowania, z podziałem na kategorie,
+  powiększaniem i arkuszami Excela. Okno zamyka się samo po 5 min bezczynności.
+- Otwarte raz dokumenty tablet zapamiętuje – są dostępne także przy chwilowym braku internetu.
+- Plik Excel (.xlsx) jest odwzorowywany na terminalu ze wszystkimi widocznymi zakładkami: szerokości kolumn i wysokości
+  wierszy, czcionki, kolory (także kolory motywu), wypełnienia, obramowania, scalenia, wyrównanie, zawijanie i obrót tekstu,
+  formaty liczb i dat, obrazy oraz kształty (prostokąty, strzałki, linie ze strzałkami, elipsy, pola tekstowe, grupy).
+  Ukryte zakładki pozostają ukryte (jak w Excelu). Wykresy Excela nie są wyświetlane. Stary format .xls zapisz jako .xlsx.
+- Pliki są zapisywane w katalogu data/dokumenty (chroniony przed dostępem z zewnątrz). Jeżeli wgrywanie dużych plików
+  kończy się błędem, w panelu home.pl zwiększ limity PHP: upload_max_filesize i post_max_size do min. 32M.
+
+ROLE W PANELU (zakładka „Role” – tylko administrator główny)
+- Administrator główny: rola wbudowana, pełny dostęp, jako jedyna zarządza ustawieniami systemu,
+  użytkownikami i rolami.
+- Pozostałe role tworzysz sam (np. Administrator oddziału, Brygadzista, Kierownik zmiany, Podgląd).
+  Dla każdej roli ustawiasz:
+  · nazwę i opis,
+  · dostęp do oddziałów: wybrane (przypisane do użytkownika) lub wszystkie,
+  · widok danych: ostatnie N dób (0 = bez ograniczeń),
+  · limit korekt: ile dni wstecz można poprawiać dane,
+  · uprawnienia: Operatorzy · Korekta palet · Zamykanie załadunków · Usuwanie wpisów · Ustawienia oddziału ·
+    Komunikaty · Terminale · Eksport do Excela · Dziennik zmian.
+- Podgląd Pulpitu, Rejestru, Przestojów, Rankingu, Planu TMS i Terminali ma każda rola.
+- Nadawanie ról przez administratora oddziału: rola z uprawnieniem „Użytkownicy oddziału” (domyślnie Administrator
+  oddziału) może zakładać i edytować konta w swoich oddziałach oraz nadawać tylko role oznaczone przez administratora
+  głównego opcją „Administrator oddziału może nadawać tę rolę” (domyślnie: Kierownik zmiany, Podgląd).
+  Nie może nadać roli administratora ani dostępu do innych oddziałów, nie widzi kont spoza swoich oddziałów,
+  nie zmienia ról ani własnego konta.
+- Zmiana roli działa od razu dla wszystkich przypisanych użytkowników. Roli przypisanej do użytkowników
+  nie można usunąć. Przycisk „Kopiuj” tworzy nową rolę na bazie istniejącej.
+- Na start dostępne są role: Administrator oddziału, Kierownik zmiany, Audytor, Podgląd (można je zmieniać).
+- Operatorzy wózków (logowanie na terminalu kartą/PIN-em) to osobna lista w zakładce Operatorzy.
+
+BEZPIECZEŃSTWO
+- Hasła: bcrypt; konfigurowalna polityka (długość, cyfra, wielka litera, znak specjalny, zmiana co N dni).
+- Weryfikacja dwuetapowa TOTP (opcjonalna lub wymagana dla administratorów głównych).
+- Lista aktywnych sesji z możliwością wylogowania; automatyczne wylogowanie po bezczynności.
+- Lista dozwolonych adresów IP panelu (np. tylko sieć firmowa). Uwaga: zapis jest możliwy tylko wtedy,
+  gdy Twój bieżący adres jest na liście – zabezpieczenie przed odcięciem samego siebie.
+- Blokada po wielu nieudanych logowaniach (15 min) i błędnych kodach terminala (10 min).
+- Dziennik zmian: logowania, korekty, operatorzy, terminale, ustawienia, użytkownicy, kopie, retencja.
+
+KOPIE ZAPASOWE
+- Ustawienia systemu → „Pobierz kopię bazy (.json)” – pełna kopia danych (bez zdjęć).
+- „Przywróć z kopii” – zastępuje wszystkie dane (wymaga hasła) i wylogowuje wszystkich.
+- Dodatkowo włącz automatyczny backup bazy w panelu home.pl.
