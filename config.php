@@ -5,10 +5,10 @@
 return [
     'db' => [
         'driver' => 'mysql8',            // 'mysql' (home.pl)  |  'sqlite' (tylko testy lokalne)
-        'host'   => 'mysql8',        // host bazy z panelu home.pl, np. 'mysqlXX.homepl.pl' lub 'localhost'
-        'name'   => '00435192_operis',
-        'user'   => '00435192_operis',
-        'pass'   => 'Fast2k26!@26',
+        'host'   => 'mysql8wef',        // host bazy z panelu home.pl, np. 'mysqlXX.homepl.pl' lub 'localhost'
+        'name'   => '0wefw0435192_opwefweeris',
+        'user'   => '00435fewew192_operis',
+        'pass'   => 'Fawefst2kwefwef6!@26',
         'sqlite' => __DIR__ . '/data/esl.sqlite',
     ],
     // Klucz wymagany do uruchomienia instalatora: install.php?klucz=...
